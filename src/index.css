@@ -1,0 +1,85 @@
+@import "tailwindcss";
+
+@layer utilities {
+  .font-serif-classic {
+    font-family: 'Cormorant Garamond', serif;
+  }
+  .font-handwriting {
+    font-family: 'Great Vibes', cursive;
+  }
+  .font-sans-body {
+    font-family: 'Plus Jakarta Sans', sans-serif;
+  }
+}
+
+/* Custom keyframes for candle flicker, vinyl wobble, and smooth pulses */
+@keyframes flicker {
+  0%, 100% { transform: scaleY(1) rotate(-1deg); opacity: 1; }
+  30% { transform: scaleY(0.92) rotate(2deg); opacity: 0.9; }
+  55% { transform: scaleY(1.08) rotate(-2deg); opacity: 1; }
+  80% { transform: scaleY(0.96) rotate(1deg); opacity: 0.95; }
+}
+
+@keyframes vinylSpin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes vinylWobble {
+  0% { transform: scale(1) translate(0px, 0px); }
+  100% { transform: scale(1.008) translate(0.5px, 0.5px); }
+}
+
+@keyframes sunPulse {
+  0% { transform: scale(1); opacity: 0.95; }
+  100% { transform: scale(1.05); opacity: 1; }
+}
+
+@keyframes cloudDrift {
+  0% { transform: translateX(0px); }
+  50% { transform: translateX(20px); }
+  100% { transform: translateX(0px); }
+}
+
+@keyframes magicFloat {
+  0%, 100% { transform: translateY(0px) rotate(0deg); }
+  50% { transform: translateY(-7px) rotate(0.8deg); }
+}
+
+@keyframes runeGlow {
+  0%, 100% { opacity: 0.4; filter: drop-shadow(0 0 2px currentColor); }
+  50% { opacity: 1; filter: drop-shadow(0 0 8px currentColor); }
+}
+
+.animate-magic-float {
+  animation: magicFloat 4.5s ease-in-out infinite;
+}
+
+.animate-rune-glow {
+  animation: runeGlow 3s ease-in-out infinite;
+}
+
+.animate-flicker {
+  animation: flicker 2.2s ease-in-out infinite;
+}
+
+.animate-vinyl-spin {
+  animation: vinylSpin 3.5s linear infinite;
+}
+
+.animate-sun-pulse {
+  animation: sunPulse 4s ease-in-out infinite alternate;
+}
+
+.animate-cloud-drift {
+  animation: cloudDrift 18s ease-in-out infinite alternate;
+}
+
+/* Hide scrollbars for clean full-screen experience */
+::-webkit-scrollbar {
+  display: none;
+}
+* {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}

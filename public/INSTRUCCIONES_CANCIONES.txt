@@ -1,0 +1,18 @@
+=====================================================
+INSTRUCCIONES PARA PRECARGAR TUS CANCIONES MP3
+=====================================================
+
+¡Hola! Has creado esta carpeta public para tus archivos MP3.
+
+PASO 1: Coloca tus archivos .mp3 en esta carpeta:
+        - /public/cancion1.mp3
+        - /public/cancion2.mp3
+        - /public/cancion3.mp3
+
+PASO 2: En la aplicación o en el botón ⚙️ (Personalizar Regalo),
+        selecciona "Canción Personalizada MP3 / URL" e ingresa la ruta:
+        /cancion1.mp3
+        /cancion2.mp3
+        etc.
+
+¡Listo! Sonarán automáticamente en el Tocadiscos (Escena 2) y en la Bobina de Tesla (Escena 7).
