@@ -280,7 +280,6 @@ class AudioManager {
   }
 
   private playFile(url: string) {
-    this.initAudioContext();
     this.currentAudioElement = new Audio();
     if (/^https?:\/\//i.test(url)) {
       this.currentAudioElement.crossOrigin = 'anonymous';
@@ -289,19 +288,17 @@ class AudioManager {
     this.currentAudioElement.volume = this.volume;
     this.currentAudioElement.loop = true;
 
-    if (this.audioCtx && this.analyserNode) {
-      try {
-        this.mediaSourceNode = this.audioCtx.createMediaElementSource(this.currentAudioElement);
-        this.mediaSourceNode.connect(this.analyserNode);
-      } catch (e) {
-        console.warn('Could not route audio through analyser node:', e);
-      }
-    }
-
+    // Play the element directly through the browser's normal audio pipeline
+    // (no Web Audio routing). This keeps the call tied to the user's click
+    // (so autoplay policies don't block it) and guarantees it's audible,
+    // exactly like opening the mp3 file on its own works. We use the same
+    // synthetic "beat pulse" generator as YouTube tracks so the on-screen
+    // animations still react rhythmically to the music.
     this.currentAudioElement
       .play()
       .then(() => {
         this.isPlaying = true;
+        this.startRhythmBeatGenerator();
         this.notify();
       })
       .catch((err) => {
@@ -422,6 +419,7 @@ class AudioManager {
         try {
           (this.ytPlayer as { playVideo: () => void }).playVideo();
           this.isPlaying = true;
+          this.startRhythmBeatGenerator();
           this.notify();
           return;
         } catch (e) {
@@ -430,9 +428,16 @@ class AudioManager {
       }
       if (this.activeTrackId) {
         if (this.currentAudioElement) {
-          this.currentAudioElement.play();
-          this.isPlaying = true;
-          this.notify();
+          this.currentAudioElement
+            .play()
+            .then(() => {
+              this.isPlaying = true;
+              this.startRhythmBeatGenerator();
+              this.notify();
+            })
+            .catch((err) => {
+              console.warn('Error resuming playback:', err);
+            });
         } else {
           // Resume synth or play current active track
           this.playSynthPreset('synth:romantic-piano');
@@ -489,4 +494,3 @@ class AudioManager {
 }
 
 export const audioManager = new AudioManager();
-
