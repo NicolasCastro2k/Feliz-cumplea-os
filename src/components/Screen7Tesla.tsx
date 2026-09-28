@@ -52,14 +52,6 @@ export const Screen7Tesla: React.FC<Screen7TeslaProps> = ({
 
   const currentSong = config.songs[selectedSongIdx] || config.songs[teslaSongIdx] || config.songs[0];
 
-  // Refs so the animation loop below (which only restarts on `isPlaying`
-  // changes) always reads the latest active track / target song without
-  // needing to tear down and rebuild the canvas loop.
-  const activeTrackIdRef = useRef<string | null>(activeTrackId);
-  activeTrackIdRef.current = activeTrackId;
-  const currentSongIdRef = useRef<string | undefined>(currentSong?.id);
-  currentSongIdRef.current = currentSong?.id;
-
   // Auto-play creator's designated Tesla song when entering Screen 7
   useEffect(() => {
     const targetSong = config.songs[teslaSongIdx] || config.songs[0];
@@ -86,6 +78,19 @@ export const Screen7Tesla: React.FC<Screen7TeslaProps> = ({
     let animId: number;
     let w = (canvas.width = canvas.parentElement?.clientWidth || window.innerWidth);
     let h = (canvas.height = canvas.parentElement?.clientHeight || window.innerHeight);
+
+    // Detect low-power / mobile devices to scale down the most expensive canvas
+    // operations (shadowBlur, recursive branching, particle counts). shadowBlur
+    // in particular is very costly to render on mobile GPUs.
+    const isMobile =
+      window.innerWidth < 768 || /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+    const maxLightningDepth = isMobile ? 2 : 4;
+    const maxArcCount = isMobile ? 1 : 2;
+    const maxSparksPerHit = isMobile ? 2 : 4;
+    // Cap the animation loop itself on mobile (~30fps instead of 60fps) to
+    // roughly halve total rendering work and battery/GPU load.
+    const targetFrameInterval = isMobile ? 1000 / 30 : 0;
+    let lastRenderTime = 0;
 
     const handleResize = () => {
       if (!canvas || !canvas.parentElement) return;
@@ -117,27 +122,30 @@ export const Screen7Tesla: React.FC<Screen7TeslaProps> = ({
       seed: number,
       depth: number = 0
     ) => {
-      if (displace < 4 || depth > 4) {
+      if (displace < 4 || depth > maxLightningDepth) {
         ctx.save();
         ctx.globalAlpha = Math.max(0, Math.min(1, alpha));
 
-        // Pass 1: Outer Plasma Glow
-        ctx.beginPath();
-        ctx.moveTo(x1, y1);
-        ctx.lineTo(x2, y2);
-        ctx.strokeStyle = colorObj.glow;
-        ctx.lineWidth = Math.max(1.5, 6 / (depth + 1));
-        ctx.shadowColor = colorObj.main;
-        ctx.shadowBlur = 20;
-        ctx.stroke();
+        if (!isMobile) {
+          // Pass 1: Outer Plasma Glow (skipped on mobile - shadowBlur is the
+          // single most expensive canvas operation on mobile GPUs)
+          ctx.beginPath();
+          ctx.moveTo(x1, y1);
+          ctx.lineTo(x2, y2);
+          ctx.strokeStyle = colorObj.glow;
+          ctx.lineWidth = Math.max(1.5, 6 / (depth + 1));
+          ctx.shadowColor = colorObj.main;
+          ctx.shadowBlur = 20;
+          ctx.stroke();
+        }
 
         // Pass 2: High-voltage Plasma Shaft
         ctx.beginPath();
         ctx.moveTo(x1, y1);
         ctx.lineTo(x2, y2);
         ctx.strokeStyle = colorObj.main;
-        ctx.lineWidth = Math.max(1, 3 / (depth + 1));
-        ctx.shadowBlur = 8;
+        ctx.lineWidth = isMobile ? Math.max(1.5, 5 / (depth + 1)) : Math.max(1, 3 / (depth + 1));
+        ctx.shadowBlur = isMobile ? 0 : 8;
         ctx.stroke();
 
         // Pass 3: White-Hot Core
@@ -170,8 +178,8 @@ export const Screen7Tesla: React.FC<Screen7TeslaProps> = ({
       drawLightningPath(x1, y1, finalX, finalY, displace / 2, colorObj, alpha, seed + 1, depth);
       drawLightningPath(finalX, finalY, x2, y2, displace / 2, colorObj, alpha, seed + 2, depth);
 
-      // Side branch
-      if (Math.abs(normRand) > 0.3 && depth < 1) {
+      // Side branch (skipped on mobile to reduce recursive draw calls)
+      if (!isMobile && Math.abs(normRand) > 0.3 && depth < 1) {
         const branchAngle = Math.atan2(y2 - y1, x2 - x1) + normRand * 1.2;
         const branchLen = 30 + Math.abs(normRand) * 40;
         const branchX = finalX + Math.cos(branchAngle) * branchLen;
@@ -181,18 +189,24 @@ export const Screen7Tesla: React.FC<Screen7TeslaProps> = ({
       }
     };
 
-    const render = () => {
+    const render = (timestamp: number = 0) => {
+      // On mobile, skip frames to cap the loop at ~30fps instead of the
+      // browser's default ~60fps, cutting total canvas work roughly in half.
+      if (isMobile) {
+        if (timestamp - lastRenderTime < targetFrameInterval) {
+          animId = requestAnimationFrame(render);
+          return;
+        }
+        lastRenderTime = timestamp;
+      }
+
       // 1. Query real-time audio intensity
       const rawIntensity = audioManager.getAudioIntensity();
       framesSinceLastBeat++;
 
-      // Only this screen's designated/selected song should trigger the coil —
-      // not any track playing elsewhere (e.g. the friend's letter song).
-      const isTargetSongPlaying = isPlaying && activeTrackIdRef.current === currentSongIdRef.current;
-
       // Detect beat strike onset (when audio spikes or rhythm timer hits)
       let isBeatHit = false;
-      if (isTargetSongPlaying) {
+      if (isPlaying) {
         const delta = rawIntensity - prevIntensity;
         // Trigger beat if there is a sharp volume rise OR periodic rhythm tick
         if ((delta > 0.12 && framesSinceLastBeat > 8) || (rawIntensity > 0.35 && framesSinceLastBeat > 14)) {
@@ -222,15 +236,15 @@ export const Screen7Tesla: React.FC<Screen7TeslaProps> = ({
       }
 
       // 2. Spawn Rhythmic Arc Discharges on Beats!
-      if (isTargetSongPlaying && isBeatHit) {
+      if (isPlaying && isBeatHit) {
         // Increment color cycle if mode is 'all'
         if (selectedColorModeRef.current === 'all') {
           colorCycleIndex = (colorCycleIndex + 1) % LIGHTNING_COLORS.length;
           currentColorObj = LIGHTNING_COLORS[colorCycleIndex];
         }
 
-        // Spawn 1 to 2 distinct sharp arcs
-        const arcCount = rawIntensity > 0.6 ? 2 : 1;
+        // Spawn 1 to 2 distinct sharp arcs (capped at 1 on mobile)
+        const arcCount = Math.min(maxArcCount, rawIntensity > 0.6 ? 2 : 1);
         for (let a = 0; a < arcCount; a++) {
           const angle = -Math.PI * 0.9 + Math.random() * (Math.PI * 0.8);
           const dist = 90 + rawIntensity * 220 + Math.random() * 60;
@@ -257,8 +271,8 @@ export const Screen7Tesla: React.FC<Screen7TeslaProps> = ({
             seed: Math.random() * 1000,
           });
 
-          // Impact sparks
-          for (let s = 0; s < 4; s++) {
+          // Impact sparks (fewer on mobile)
+          for (let s = 0; s < maxSparksPerHit; s++) {
             const pAngle = Math.random() * Math.PI * 2;
             const pSpeed = 1.5 + Math.random() * 4;
             sparkParticles.push({
@@ -314,7 +328,7 @@ export const Screen7Tesla: React.FC<Screen7TeslaProps> = ({
       ctx.strokeStyle = isBeatHit ? currentColorObj.main : '#ea580c';
       ctx.lineWidth = 5 + (isBeatHit ? 4 : 0);
       ctx.shadowColor = currentColorObj.main;
-      ctx.shadowBlur = isBeatHit ? 20 : 6;
+      ctx.shadowBlur = isMobile ? (isBeatHit ? 10 : 0) : isBeatHit ? 20 : 6;
       for (let i = 0; i < 4; i++) {
         const py = coilY - baseH - 10 - i * 10;
         ctx.beginPath();
@@ -323,8 +337,14 @@ export const Screen7Tesla: React.FC<Screen7TeslaProps> = ({
       }
 
       // Metallic Toroid Terminal
-      ctx.shadowBlur = isTargetSongPlaying ? 15 + rawIntensity * 25 : 8;
-      ctx.shadowColor = isTargetSongPlaying ? currentColorObj.main : '#38bdf8';
+      ctx.shadowBlur = isMobile
+        ? isPlaying
+          ? 8 + rawIntensity * 10
+          : 4
+        : isPlaying
+        ? 15 + rawIntensity * 25
+        : 8;
+      ctx.shadowColor = isPlaying ? currentColorObj.main : '#38bdf8';
 
       const toroidGrd = ctx.createRadialGradient(toroidX - 15, toroidY - 10, 5, toroidX, toroidY, 65);
       toroidGrd.addColorStop(0, '#ffffff');
@@ -343,7 +363,7 @@ export const Screen7Tesla: React.FC<Screen7TeslaProps> = ({
       ctx.restore();
 
       // 4. Render Toroid Corona Plasma Aura (charging between beats)
-      if (isTargetSongPlaying) {
+      if (isPlaying) {
         ctx.save();
         ctx.globalCompositeOperation = 'lighter';
 
@@ -411,7 +431,7 @@ export const Screen7Tesla: React.FC<Screen7TeslaProps> = ({
       animId = requestAnimationFrame(render);
     };
 
-    render();
+    render(performance.now());
 
     return () => {
       cancelAnimationFrame(animId);
@@ -427,10 +447,10 @@ export const Screen7Tesla: React.FC<Screen7TeslaProps> = ({
       {/* Header Info */}
       <div className="relative z-20 mt-2 sm:mt-4 text-center max-w-xl px-2 space-y-1.5">
         <h2 className="font-serif-classic text-xl sm:text-3xl text-amber-100 drop-shadow-[0_2px_15px_rgba(0,0,0,0.9)]">
-          Rayos & Melodías de Amor ⚡
+          Tal y como me haces sentir...
         </h2>
         <p className="font-sans-body text-[11px] sm:text-xs text-amber-200/80">
-          Especialmente preparado para ti ♥ — La Bobina de Tesla baila al ritmo de nuestra canción.
+          Espero que te guste, bonita~
         </p>
 
         {/* Color Configuration Modal Trigger Button */}
