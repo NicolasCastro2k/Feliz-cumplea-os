@@ -281,9 +281,6 @@ export const Screen1Candles: React.FC<Screen1Props> = ({ config, onNext }) => {
       }}
       onTouchEnd={() => setPointer({ x: -999, y: -999, active: false })}
       onTouchCancel={() => setPointer({ x: -999, y: -999, active: false })}
-      onClick={(e) => {
-        updatePointer(e.clientX, e.clientY);
-      }}
     >
       <canvas ref={fogCanvasRef} className="absolute inset-0 w-full h-full pointer-events-none z-10" />
       <canvas ref={flameCanvasRef} className="absolute inset-0 w-full h-full pointer-events-none z-20" />

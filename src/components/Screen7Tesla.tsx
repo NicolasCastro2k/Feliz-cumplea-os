@@ -105,10 +105,13 @@ export const Screen7Tesla: React.FC<Screen7TeslaProps> = ({
     // Particle sparks list
     const sparkParticles: { x: number; y: number; vx: number; vy: number; color: string; life: number; maxLife: number }[] = [];
 
-    // Beat detection tracking state
+    // Beat detection tracking state (measured in real milliseconds, not frame
+    // counts, so timing stays correct regardless of the frame-rate cap above)
     let prevIntensity = 0;
-    let framesSinceLastBeat = 0;
+    let msSinceLastBeat = 0;
     let colorCycleIndex = 0;
+    const BEAT_MIN_GAP_SHARP_MS = 130; // was "framesSinceLastBeat > 8" at ~60fps
+    const BEAT_MIN_GAP_PERIODIC_MS = 230; // was "framesSinceLastBeat > 14" at ~60fps
 
     // Helper: Draw seeded fractal lightning path for stable, non-flickering arc rendering
     const drawLightningPath = (
@@ -192,26 +195,30 @@ export const Screen7Tesla: React.FC<Screen7TeslaProps> = ({
     const render = (timestamp: number = 0) => {
       // On mobile, skip frames to cap the loop at ~30fps instead of the
       // browser's default ~60fps, cutting total canvas work roughly in half.
-      if (isMobile) {
-        if (timestamp - lastRenderTime < targetFrameInterval) {
-          animId = requestAnimationFrame(render);
-          return;
-        }
-        lastRenderTime = timestamp;
+      if (isMobile && timestamp - lastRenderTime < targetFrameInterval) {
+        animId = requestAnimationFrame(render);
+        return;
       }
+      // Real elapsed time since the last frame we actually rendered. Falls
+      // back to ~16.7ms (60fps) on the very first frame.
+      const deltaMs = lastRenderTime ? timestamp - lastRenderTime : 16.67;
+      lastRenderTime = timestamp;
 
       // 1. Query real-time audio intensity
       const rawIntensity = audioManager.getAudioIntensity();
-      framesSinceLastBeat++;
+      msSinceLastBeat += deltaMs;
 
       // Detect beat strike onset (when audio spikes or rhythm timer hits)
       let isBeatHit = false;
       if (isPlaying) {
         const delta = rawIntensity - prevIntensity;
         // Trigger beat if there is a sharp volume rise OR periodic rhythm tick
-        if ((delta > 0.12 && framesSinceLastBeat > 8) || (rawIntensity > 0.35 && framesSinceLastBeat > 14)) {
+        if (
+          (delta > 0.12 && msSinceLastBeat > BEAT_MIN_GAP_SHARP_MS) ||
+          (rawIntensity > 0.35 && msSinceLastBeat > BEAT_MIN_GAP_PERIODIC_MS)
+        ) {
           isBeatHit = true;
-          framesSinceLastBeat = 0;
+          msSinceLastBeat = 0;
         }
       }
       prevIntensity = rawIntensity;
@@ -256,7 +263,9 @@ export const Screen7Tesla: React.FC<Screen7TeslaProps> = ({
           const targetX = toroidX + Math.cos(angle) * dist;
           const targetY = toroidY + Math.sin(angle) * dist;
 
-          const maxLife = 8 + Math.floor(Math.random() * 8); // Lives for 8-16 frames (~150ms snap)
+          // Lives for ~130-270ms real time (was frame-counted, which broke at
+          // different frame rates)
+          const maxLife = 130 + Math.random() * 140;
 
           activeArcs.push({
             startX,
@@ -282,7 +291,7 @@ export const Screen7Tesla: React.FC<Screen7TeslaProps> = ({
               vy: Math.sin(pAngle) * pSpeed,
               color: currentColorObj.core,
               life: 1.0,
-              maxLife: 12 + Math.random() * 15,
+              maxLife: 200 + Math.random() * 250, // ~200-450ms real time
             });
           }
         }
@@ -388,7 +397,7 @@ export const Screen7Tesla: React.FC<Screen7TeslaProps> = ({
 
       for (let i = activeArcs.length - 1; i >= 0; i--) {
         const arc = activeArcs[i];
-        arc.life -= 1;
+        arc.life -= deltaMs;
 
         if (arc.life <= 0) {
           activeArcs.splice(i, 1);
@@ -413,7 +422,7 @@ export const Screen7Tesla: React.FC<Screen7TeslaProps> = ({
         const p = sparkParticles[i];
         p.x += p.vx;
         p.y += p.vy;
-        p.life -= 1 / p.maxLife;
+        p.life -= deltaMs / p.maxLife;
 
         if (p.life <= 0) {
           sparkParticles.splice(i, 1);
@@ -447,10 +456,10 @@ export const Screen7Tesla: React.FC<Screen7TeslaProps> = ({
       {/* Header Info */}
       <div className="relative z-20 mt-2 sm:mt-4 text-center max-w-xl px-2 space-y-1.5">
         <h2 className="font-serif-classic text-xl sm:text-3xl text-amber-100 drop-shadow-[0_2px_15px_rgba(0,0,0,0.9)]">
-          Tal y como me haces sentir...
+          Rayos & Melodías de Amor ⚡
         </h2>
         <p className="font-sans-body text-[11px] sm:text-xs text-amber-200/80">
-          Espero que te guste, bonita~
+          Especialmente preparado para ti ♥ — La Bobina de Tesla baila al ritmo de nuestra canción.
         </p>
 
         {/* Color Configuration Modal Trigger Button */}
