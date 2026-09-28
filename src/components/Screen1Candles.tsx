@@ -272,12 +272,15 @@ export const Screen1Candles: React.FC<Screen1Props> = ({ config, onNext }) => {
     <div
       className="relative w-full h-full min-h-[100dvh] overflow-hidden bg-radial from-neutral-900 via-stone-950 to-black select-none flex flex-col justify-between"
       onMouseMove={(e) => updatePointer(e.clientX, e.clientY)}
+      onMouseLeave={() => setPointer({ x: -999, y: -999, active: false })}
       onTouchMove={(e) => {
         if (e.touches[0]) updatePointer(e.touches[0].clientX, e.touches[0].clientY);
       }}
       onTouchStart={(e) => {
         if (e.touches[0]) updatePointer(e.touches[0].clientX, e.touches[0].clientY);
       }}
+      onTouchEnd={() => setPointer({ x: -999, y: -999, active: false })}
+      onTouchCancel={() => setPointer({ x: -999, y: -999, active: false })}
       onClick={(e) => {
         updatePointer(e.clientX, e.clientY);
       }}
