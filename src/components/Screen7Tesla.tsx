@@ -52,6 +52,14 @@ export const Screen7Tesla: React.FC<Screen7TeslaProps> = ({
 
   const currentSong = config.songs[selectedSongIdx] || config.songs[teslaSongIdx] || config.songs[0];
 
+  // Refs so the animation loop below (which only restarts on `isPlaying`
+  // changes) always reads the latest active track / target song without
+  // needing to tear down and rebuild the canvas loop.
+  const activeTrackIdRef = useRef<string | null>(activeTrackId);
+  activeTrackIdRef.current = activeTrackId;
+  const currentSongIdRef = useRef<string | undefined>(currentSong?.id);
+  currentSongIdRef.current = currentSong?.id;
+
   // Auto-play creator's designated Tesla song when entering Screen 7
   useEffect(() => {
     const targetSong = config.songs[teslaSongIdx] || config.songs[0];
@@ -178,9 +186,13 @@ export const Screen7Tesla: React.FC<Screen7TeslaProps> = ({
       const rawIntensity = audioManager.getAudioIntensity();
       framesSinceLastBeat++;
 
+      // Only this screen's designated/selected song should trigger the coil —
+      // not any track playing elsewhere (e.g. the friend's letter song).
+      const isTargetSongPlaying = isPlaying && activeTrackIdRef.current === currentSongIdRef.current;
+
       // Detect beat strike onset (when audio spikes or rhythm timer hits)
       let isBeatHit = false;
-      if (isPlaying) {
+      if (isTargetSongPlaying) {
         const delta = rawIntensity - prevIntensity;
         // Trigger beat if there is a sharp volume rise OR periodic rhythm tick
         if ((delta > 0.12 && framesSinceLastBeat > 8) || (rawIntensity > 0.35 && framesSinceLastBeat > 14)) {
@@ -210,7 +222,7 @@ export const Screen7Tesla: React.FC<Screen7TeslaProps> = ({
       }
 
       // 2. Spawn Rhythmic Arc Discharges on Beats!
-      if (isPlaying && isBeatHit) {
+      if (isTargetSongPlaying && isBeatHit) {
         // Increment color cycle if mode is 'all'
         if (selectedColorModeRef.current === 'all') {
           colorCycleIndex = (colorCycleIndex + 1) % LIGHTNING_COLORS.length;
@@ -311,8 +323,8 @@ export const Screen7Tesla: React.FC<Screen7TeslaProps> = ({
       }
 
       // Metallic Toroid Terminal
-      ctx.shadowBlur = isPlaying ? 15 + rawIntensity * 25 : 8;
-      ctx.shadowColor = isPlaying ? currentColorObj.main : '#38bdf8';
+      ctx.shadowBlur = isTargetSongPlaying ? 15 + rawIntensity * 25 : 8;
+      ctx.shadowColor = isTargetSongPlaying ? currentColorObj.main : '#38bdf8';
 
       const toroidGrd = ctx.createRadialGradient(toroidX - 15, toroidY - 10, 5, toroidX, toroidY, 65);
       toroidGrd.addColorStop(0, '#ffffff');
@@ -331,7 +343,7 @@ export const Screen7Tesla: React.FC<Screen7TeslaProps> = ({
       ctx.restore();
 
       // 4. Render Toroid Corona Plasma Aura (charging between beats)
-      if (isPlaying) {
+      if (isTargetSongPlaying) {
         ctx.save();
         ctx.globalCompositeOperation = 'lighter';
 
