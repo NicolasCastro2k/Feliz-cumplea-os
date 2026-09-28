@@ -270,9 +270,16 @@ export const Screen1Candles: React.FC<Screen1Props> = ({ config, onNext }) => {
 
   return (
     <div
-      className="relative w-full h-full min-h-[100dvh] overflow-hidden bg-radial from-neutral-900 via-stone-950 to-black select-none flex flex-col justify-between"
+      className="relative w-full h-full min-h-[100dvh] overflow-hidden bg-radial from-neutral-900 via-stone-950 to-black select-none touch-none flex flex-col justify-between"
       onPointerMove={(e) => updatePointer(e.clientX, e.clientY)}
-      onPointerDown={(e) => updatePointer(e.clientX, e.clientY)}
+      onPointerDown={(e) => {
+        try {
+          e.currentTarget.setPointerCapture(e.pointerId);
+        } catch {
+          // Pointer capture isn't critical; ignore if unsupported
+        }
+        updatePointer(e.clientX, e.clientY);
+      }}
       onPointerUp={() => setPointer({ x: -999, y: -999, active: false })}
       onPointerLeave={() => setPointer({ x: -999, y: -999, active: false })}
       onPointerCancel={() => setPointer({ x: -999, y: -999, active: false })}
