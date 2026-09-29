@@ -456,10 +456,10 @@ export const Screen7Tesla: React.FC<Screen7TeslaProps> = ({
       {/* Header Info */}
       <div className="relative z-20 mt-2 sm:mt-4 text-center max-w-xl px-2 space-y-1.5">
         <h2 className="font-serif-classic text-xl sm:text-3xl text-amber-100 drop-shadow-[0_2px_15px_rgba(0,0,0,0.9)]">
-          Rayos & Melodías de Amor ⚡
+          Un show de bobina para ti.
         </h2>
         <p className="font-sans-body text-[11px] sm:text-xs text-amber-200/80">
-          Especialmente preparado para ti ♥ — La Bobina de Tesla baila al ritmo de nuestra canción.
+          Especialmente preparado para ti ♥ — Espero que te guste bonita~.
         </p>
 
         {/* Color Configuration Modal Trigger Button */}
